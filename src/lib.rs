@@ -3,7 +3,6 @@ use axum::handler::Handler;
 use axum::response::IntoResponse;
 use axum::routing::{MethodRouter, Route};
 use axum::Router;
-use bevy_app::prelude::*;
 use bevy_defer::{AsyncExtension, AsyncPlugin, AsyncWorld};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -35,8 +34,14 @@ impl bevy_app::Plugin for BevyWebServerPlugin {
 
 #[derive(Resource, Clone)]
 pub struct WebServerConfig {
-    pub ip: IpAddr,
-    pub port: u16,
+    ip: IpAddr,
+    port: u16,
+}
+
+impl WebServerConfig {
+    pub fn new(ip: IpAddr, port: u16) -> Self {
+        Self { ip, port }
+    }
 }
 
 impl Default for WebServerConfig {
@@ -314,5 +319,18 @@ where
                 OneshotProj::Done => panic!("future polled after completion"),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_web_server_config() {
+        let web_server_config =
+            WebServerConfig::new(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap()), 8080);
+        assert_eq!(web_server_config.ip, Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(web_server_config.port, 8080);
     }
 }
