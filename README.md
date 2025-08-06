@@ -17,7 +17,7 @@ Add this to your `Cargo.toml`:
 [dependencies]
 bevy_webserver = "0.2.0"
 bevy = "0.16.0"
-axum = "0.8.1"
+axum = "0.8.4"
 ```
 
 ## Quick Start
@@ -26,11 +26,12 @@ Here's a minimal example that sets up a simple "Hello World" web server:
 
 ```rust
 use bevy::prelude::*;
-use bevy_webserver::RouterAppExt;
+use bevy_webserver::{BevyWebServerPlugin, RouterAppExt};
 
 fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
+        .add_plugins(BevyWebServerPlugin)
         .route("/hello_world", axum::routing::get(hello_world))
         .run();
 }
@@ -50,11 +51,36 @@ async fn hello_world() -> axum::response::Html<String> {
 
 ```rust
 use bevy::prelude::*;
-use bevy_webserver::RouterAppExt;
+use bevy_webserver::{BevyWebServerPlugin, RouterAppExt};
 
 fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
+        .add_plugins(BevyWebServerPlugin)
+        // Add as many routes as you need
+        .route("/", axum::routing::get(index))
+        .route("/about", axum::routing::get(about))
+        .route("/api/data", axum::routing::post(handle_data))
+        .run();
+}
+```
+
+### Initializing the Web Server with Custom Address and Port
+
+You can customize the IP address and port of the web server by this example:
+
+```rust
+use bevy::prelude::*;
+use bevy_webserver::{BevyWebServerPlugin, WebServerPlugin, RouterAppExt};
+
+fn main() {
+    let host: IpAddr = IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap());
+    let port: u16 = 8080;
+
+    App::new()
+        .add_plugins(MinimalPlugins)
+        .insert_resource(WebServerConfig::new(host, port))
+        .add_plugins(BevyWebServerPlugin)
         // Add as many routes as you need
         .route("/", axum::routing::get(index))
         .route("/about", axum::routing::get(about))
@@ -80,7 +106,7 @@ async fn get_player_score(Path(player_id): Path<String>) -> impl IntoResponse {
             }
             serde_json::serialize(&scores).unwrap()
         });
-    
+
     Json(scores)
 }
 ```
@@ -110,7 +136,7 @@ async fn index() -> axum::response::Html<String> {
         h1 { "Welcome!" }
         p { "This is a Bevy web application." }
     });
-    
+
     axum::response::Html(markup.into_string())
 }
 ```
@@ -151,7 +177,6 @@ async fn player_list() -> axum::response::Html<String> {
 There is a complete example of a web-based game score tracker in examples/crud_app.rs
 
 This also uses another one of my crates bevy_easy_database which makes it easy to persist data!
-
 
 ## Contributing
 
