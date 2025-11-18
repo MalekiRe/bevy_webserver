@@ -86,109 +86,109 @@ async fn update_component_field(
     Json(update): Json<FieldUpdate>,
 ) -> Html<String> {
     AsyncWorld.run(|world| {
-        let entity = Entity::from_raw(entity_index);
+        if let Some(entity) = Entity::from_raw_u32(entity_index) {
+            // Get type registry for reflection
+            let type_registry = world.resource::<AppTypeRegistry>().clone();
+            let type_registry = type_registry.read();
 
-        // Get type registry for reflection
-        let type_registry = world.resource::<AppTypeRegistry>().clone();
-        let type_registry = type_registry.read();
+            let mut stuff = None;
 
-        let mut stuff = None;
+            for component in world.components().iter_registered() {
+                if let Some(info) = type_registry.get_type_info(component.type_id().unwrap()) {
+                    let component_short_name = info.type_path().split("::").last().unwrap_or("");
 
-        for component in world.components().iter_registered() {
-            if let Some(info) = type_registry.get_type_info(component.type_id().unwrap()) {
-                let component_short_name = info.type_path().split("::").last().unwrap_or("");
-
-                if component_short_name == component_name {
-                    stuff.replace((info.clone(), component.type_id().unwrap(), component.id()));
+                    if component_short_name == component_name {
+                        stuff.replace((info.clone(), component.type_id().unwrap(), component.id()));
+                    }
                 }
             }
-        }
-        if let Some((info, type_id, id)) = stuff {
-            if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                // Get mutable reference to component
-                if let Ok(mut component_ref) = entity_mut.get_mut_by_id(id) {
-                    let reflect_data = type_registry.get(type_id).unwrap();
-                    let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
-                    // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
-                    let value = unsafe { reflect_from_ptr.as_reflect_mut(component_ref.as_mut()) };
-                    if let Ok(mut struct_info) = value.reflect_mut().as_struct() {
-                        // Find the field and update it
+            if let Some((info, type_id, id)) = stuff {
+                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+                    // Get mutable reference to component
+                    if let Ok(mut component_ref) = entity_mut.get_mut_by_id(id) {
+                        let reflect_data = type_registry.get(type_id).unwrap();
+                        let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
+                        // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
+                        let value = unsafe { reflect_from_ptr.as_reflect_mut(component_ref.as_mut()) };
+                        if let Ok(mut struct_info) = value.reflect_mut().as_struct() {
+                            // Find the field and update it
 
-                        let field = struct_info.field_mut(&field_name).unwrap();
+                            let field = struct_info.field_mut(&field_name).unwrap();
 
-                        let field_type_name = field
-                            .try_as_reflect()
-                            .unwrap()
-                            .reflect_type_ident()
-                            .unwrap();
+                            let field_type_name = field
+                                .try_as_reflect()
+                                .unwrap()
+                                .reflect_type_ident()
+                                .unwrap();
 
-                        // Handle different field types
-                        match field_type_name {
-                            "Vec3" => {
-                                if let Ok(vec3_value) =
-                                    serde_json::from_value::<[f32; 3]>(update.value)
-                                {
-                                    let vec3 =
-                                        Vec3::new(vec3_value[0], vec3_value[1], vec3_value[2]);
-                                    field.apply(&vec3);
+                            // Handle different field types
+                            match field_type_name {
+                                "Vec3" => {
+                                    if let Ok(vec3_value) =
+                                        serde_json::from_value::<[f32; 3]>(update.value)
+                                    {
+                                        let vec3 =
+                                            Vec3::new(vec3_value[0], vec3_value[1], vec3_value[2]);
+                                        field.apply(&vec3);
+                                    }
+                                }
+                                "f32" => {
+                                    if let Ok(float_value) = serde_json::from_value::<f32>(update.value)
+                                    {
+                                        field.apply(&float_value);
+                                    }
+                                }
+                                "String" => {
+                                    if let Ok(string_value) =
+                                        serde_json::from_value::<String>(update.value)
+                                    {
+                                        field.apply(&string_value);
+                                    }
+                                }
+                                "bool" => {
+                                    if let Ok(bool_value) = serde_json::from_value::<bool>(update.value)
+                                    {
+                                        field.apply(&bool_value);
+                                    }
+                                }
+                                "Color" => {
+                                    if let Ok(color_value) =
+                                        serde_json::from_value::<[f32; 4]>(update.value)
+                                    {
+                                        let color = Color::srgba(
+                                            color_value[0],
+                                            color_value[1],
+                                            color_value[2],
+                                            color_value[3],
+                                        );
+                                        field.apply(&color);
+                                    }
+                                }
+                                "Quat" => {
+                                    if let Ok(quat_value) =
+                                        serde_json::from_value::<[f32; 4]>(update.value)
+                                    {
+                                        let quat = Quat::from_xyzw(
+                                            quat_value[0],
+                                            quat_value[1],
+                                            quat_value[2],
+                                            quat_value[3],
+                                        );
+                                        field.apply(&quat);
+                                    }
+                                }
+                                // Add more type handlers as needed
+                                _ => {
+                                    /*// Try to deserialize directly if type implements FromReflect
+                                    if let Ok(value) =
+                                        serde_json::from_value(update.value.clone())
+                                    {
+                                        field.apply(&value);
+                                    }*/
                                 }
                             }
-                            "f32" => {
-                                if let Ok(float_value) = serde_json::from_value::<f32>(update.value)
-                                {
-                                    field.apply(&float_value);
-                                }
-                            }
-                            "String" => {
-                                if let Ok(string_value) =
-                                    serde_json::from_value::<String>(update.value)
-                                {
-                                    field.apply(&string_value);
-                                }
-                            }
-                            "bool" => {
-                                if let Ok(bool_value) = serde_json::from_value::<bool>(update.value)
-                                {
-                                    field.apply(&bool_value);
-                                }
-                            }
-                            "Color" => {
-                                if let Ok(color_value) =
-                                    serde_json::from_value::<[f32; 4]>(update.value)
-                                {
-                                    let color = Color::srgba(
-                                        color_value[0],
-                                        color_value[1],
-                                        color_value[2],
-                                        color_value[3],
-                                    );
-                                    field.apply(&color);
-                                }
-                            }
-                            "Quat" => {
-                                if let Ok(quat_value) =
-                                    serde_json::from_value::<[f32; 4]>(update.value)
-                                {
-                                    let quat = Quat::from_xyzw(
-                                        quat_value[0],
-                                        quat_value[1],
-                                        quat_value[2],
-                                        quat_value[3],
-                                    );
-                                    field.apply(&quat);
-                                }
-                            }
-                            // Add more type handlers as needed
-                            _ => {
-                                /*// Try to deserialize directly if type implements FromReflect
-                                if let Ok(value) =
-                                    serde_json::from_value(update.value.clone())
-                                {
-                                    field.apply(&value);
-                                }*/
-                            }
+                            return Html("Field updated successfully".to_string());
                         }
-                        return Html("Field updated successfully".to_string());
                     }
                 }
             }
@@ -305,7 +305,8 @@ fn render_component(
     world: &World, // Add world parameter
     component_name: &str,
 ) -> Markup {
-    let (_, name) = component_info.name().rsplit_once("::").unwrap();
+    let binding = component_info.name();
+    let (_, name) = binding.rsplit_once("::").unwrap();
     let type_info = component_info
         .type_id()
         .and_then(|type_id| type_registry.get_type_info(type_id));
@@ -355,7 +356,7 @@ fn render_component_list(entity: Entity, world: &World) -> Markup {
                     &type_registry,
                     entity,
                     world,  // Pass world to render_component
-                    component_info.name()
+                    &component_info.name()
                 ))
             }
         }
@@ -520,9 +521,10 @@ async fn select_entity(
 ) -> Html<String> {
     AsyncWorld.run(|world| {
         // Create entity from index and update selected entity
-        let entity = Entity::from_raw(entity_index);
-        if world.get_entity(entity).is_ok() {
-            world.resource_mut::<SelectedEntity>().0 = Some(entity);
+        if let Some(entity) = Entity::from_raw_u32(entity_index) {
+            if world.get_entity(entity).is_ok() {
+                world.resource_mut::<SelectedEntity>().0 = Some(entity);
+            }
         }
     });
     // Return the updated inspector content
