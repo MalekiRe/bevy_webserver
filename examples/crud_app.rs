@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_defer::{AsyncAccess, AsyncWorld};
+use bevy_defer::AsyncWorld;
 use bevy_easy_database::*;
 use bevy_webserver::RouterAppExt;
 use maud::{html, Markup, DOCTYPE};

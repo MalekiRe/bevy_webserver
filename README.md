@@ -15,8 +15,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy_webserver = "0.2.0"
-bevy = "0.16.0"
+bevy_webserver = "0.4.0"
+bevy = "0.18.0"
 axum = "0.8.1"
 ```
 
@@ -152,6 +152,14 @@ There is a complete example of a web-based game score tracker in examples/crud_a
 
 This also uses another one of my crates bevy_easy_database which makes it easy to persist data!
 
+## Bevy support table
+
+| bevy | bevy_webserver |
+|------|----------------|
+| 0.18 | 0.4            |
+| 0.17 | 0.3            |
+| 0.16 | 0.2            |
+| 0.15 | 0.1            |
 
 ## Contributing
 
